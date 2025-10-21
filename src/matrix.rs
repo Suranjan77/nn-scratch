@@ -20,13 +20,13 @@ impl<'a> Mul for &'a Matrix {
             data: vec![0.0; res_len],
         };
 
-        for i in 0..self.rows {
+        for i in 0..self.rows { // [2, 3, 4, 3, 1, 2, 4, 2, 5]
             for j in 0..other.cols {
                 let mut sum = 0.0;
                 for k in 0..self.cols {
                     sum += self.data[i * self.cols + k] * other.data[k * other.cols + j];
                 }
-                res.data[i * self.cols + j] = sum;
+                res.data[i * other.cols + j] = sum;
             }
         }
 
@@ -62,4 +62,15 @@ mod tests {
         assert_eq!(res.data, vec![12.0, 12.0, 12.0]);
     }
 
+    #[test]
+    fn three_by_three() {
+        let a = Matrix {rows: 3, cols: 3, data: vec![2.0;9]};
+        let b = Matrix {rows: 3, cols: 3, data: vec![2.0;9]};
+
+        let res = &a * &b;
+
+        assert_eq!(res.rows, a.rows);
+        assert_eq!(res.cols, b.cols);
+        assert_eq!(res.data, vec![12.0;9]);
+    }
 }

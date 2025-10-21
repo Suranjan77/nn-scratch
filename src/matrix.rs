@@ -13,14 +13,13 @@ impl<'a> Mul for &'a Matrix {
 
     // Naive implementation with 3 loops. It needs optimisation
     fn mul(self, other: &'a Matrix) -> Matrix {
-        let res_len = self.rows * other.cols;
         let mut res = Matrix {
             rows: self.rows,
             cols: other.cols,
-            data: vec![0.0; res_len],
+            data: vec![0.0; self.rows * other.cols],
         };
 
-        for i in 0..self.rows { // [2, 3, 4, 3, 1, 2, 4, 2, 5]
+        for i in 0..self.rows {
             for j in 0..other.cols {
                 let mut sum = 0.0;
                 for k in 0..self.cols {
@@ -31,6 +30,21 @@ impl<'a> Mul for &'a Matrix {
         }
 
         res
+    }
+}
+
+impl Matrix {
+    #[allow(dead_code)]
+    fn transpose(&mut self) {
+        let mut transposed = vec![0.0; self.rows * self.cols];
+        for i in 0..self.cols {
+            for j in 0..self.rows {
+                transposed[j] = self.data[j * self.rows + i]
+            }
+        }
+        self.rows = self.cols;
+        self.cols = self.rows;
+        self.data = transposed;
     }
 }
 
@@ -72,5 +86,12 @@ mod tests {
         assert_eq!(res.rows, a.rows);
         assert_eq!(res.cols, b.cols);
         assert_eq!(res.data, vec![12.0;9]);
+    }
+
+    #[test]
+    fn transpose() {
+        let mut a = Matrix {rows: 3, cols: 3, data: vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]};
+        a.transpose();
+        assert_eq!(a.data, vec![1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0]);
     }
 }

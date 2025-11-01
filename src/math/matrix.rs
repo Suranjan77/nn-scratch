@@ -1,4 +1,5 @@
-use std::ops::{Add, Mul};
+use rand::distr::{Distribution, Uniform};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Debug)]
 pub struct Matrix {
@@ -9,7 +10,7 @@ pub struct Matrix {
 
 impl Matrix {
     #[allow(dead_code)]
-    fn new(rows: usize, cols: usize, data: Vec<f64>) -> Self {
+    pub fn new(rows: usize, cols: usize, data: Vec<f64>) -> Self {
         if rows * cols != data.len() {
             panic!("Data length does not match dimensions");
         }
@@ -17,7 +18,18 @@ impl Matrix {
     }
 
     #[allow(dead_code)]
-    fn transpose(&mut self) {
+    pub fn uniform(rows: usize, cols: usize) -> Self {
+        let mut rng = rand::rng();
+        let distribution = Uniform::try_from((-1.0..1.0)).unwrap();
+        let data = (0..rows * cols)
+            .map(|_| distribution.sample(&mut rng))
+            .collect();
+        Matrix::new(rows, cols, data)
+    }
+
+    // todo (Optimisation): Don't rearrange data when transposed, just set a flag and other methods should read rows & cols respecting the flag
+    #[allow(dead_code)]
+    pub fn transpose(&mut self) {
         let mut transposed = vec![0.0; self.rows * self.cols];
         let mut c = 0;
         for i in 0..self.cols {
@@ -33,7 +45,7 @@ impl Matrix {
     }
 
     #[allow(dead_code)]
-    fn dot(&self, other: &Matrix) -> Result<Matrix, &'static str> {
+    pub fn dot(&self, other: &Matrix) -> Result<Matrix, &'static str> {
         if self.cols != other.rows {
             return Err("Matrix multiplication dimension mismatch: A.cols != B.rows");
         }
@@ -58,85 +70,121 @@ impl Matrix {
     }
 }
 
-impl<'a, 'b> Mul<&'b Matrix> for &'a mut Matrix {
-    type Output = Result<(), &'static str>;
+impl Mul for &Matrix {
+    type Output = Matrix;
 
-    // Does in-place broadcast multiplication on A
-    fn mul(self, other: &'b Matrix) -> Result<(), &'static str> {
+    fn mul(self, other: &Matrix) -> Matrix {
         if other.data.len() == 1 {
+            let mut data = vec![0.0; self.data.len()];
             for i in 0..self.data.len() {
-                self.data[i] *= other.data[0];
+                data[i] = self.data[i] * other.data[0];
             }
-            return Ok(());
+            return Matrix::new(self.rows, self.cols, data);
         }
 
         if self.cols != other.cols {
-            return Err("Dimensions are not compatible: A.cols != B.cols");
+            panic!("Dimensions are not compatible: A.cols != B.cols");
         }
 
         if (self.rows == other.rows) || (other.rows == 1) {
+            let mut data = vec![0.0; self.data.len()];
             if other.rows == self.rows {
                 for i in 0..self.rows {
                     for j in 0..self.cols {
-                        self.data[i * self.cols + j] *= other.data[i * self.cols + j];
+                        data[i * self.cols + j] =
+                            self.data[i * self.cols + j] * other.data[i * self.cols + j];
                     }
                 }
             } else {
                 for i in 0..self.rows {
                     for j in 0..self.cols {
-                        self.data[i * self.cols + j] *= other.data[j];
+                        data[i * self.cols + j] = self.data[i * self.cols + j] * other.data[j];
                     }
                 }
             }
+            Matrix::new(self.rows, self.cols, data)
         } else {
-            return Err(
-                "Dimension are not compatible: either A.rows != B.rows or B.rows != 1",
-            );
+            panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
         }
-
-        Ok(())
     }
 }
 
-impl<'a, 'b> Add<&'b Matrix> for &'a mut Matrix {
-    type Output = Result<(), &'static str>;
+impl Add for &Matrix {
+    type Output = Matrix;
 
-    // Does in-place broadcast addition on A
-    fn add(self, other: &'b Matrix) -> Result<(), &'static str> {
+    fn add(self, other: &Matrix) -> Matrix {
         if other.data.len() == 1 {
+            let mut data = vec![0.0; self.data.len()];
             for i in 0..self.data.len() {
-                self.data[i] += other.data[0];
+                data[i] = self.data[i] + other.data[0];
             }
-            return Ok(());
+            return Matrix::new(self.rows, self.cols, data);
         }
 
         if self.cols != other.cols {
-            return Err("Dimensions are not compatible: A.cols != B.cols");
+            panic!("Dimensions are not compatible: A.cols != B.cols");
         }
 
         if (self.rows == other.rows) || (other.rows == 1) {
+            let mut data = vec![0.0; self.data.len()];
             if other.rows == self.rows {
                 for i in 0..self.rows {
                     for j in 0..self.cols {
-                        self.data[i * self.cols + j] += other.data[i * self.cols + j];
+                        data[i * self.cols + j] =
+                            self.data[i * self.cols + j] + other.data[i * self.cols + j];
                     }
                 }
             } else {
                 for i in 0..self.rows {
                     for j in 0..self.cols {
-                        self.data[i * self.cols + j] += other.data[j];
+                        data[i * self.cols + j] = self.data[i * self.cols + j] + other.data[j];
                     }
                 }
             }
+            Matrix::new(self.rows, self.cols, data)
         } else {
-            return Err(
-                "Dimension are not compatible: either A.rows != B.rows or B.rows != 1",
-            );
+            panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
+        }
+    }
+}
+
+impl Sub for &Matrix {
+    type Output = Matrix;
+
+    fn sub(self, other: &Matrix) -> Matrix {
+        if other.data.len() == 1 {
+            let mut data = vec![0.0; self.data.len()];
+            for i in 0..self.data.len() {
+                data[i] = self.data[i] - other.data[0];
+            }
+            return Matrix::new(self.rows, self.cols, data);
         }
 
-        Ok(())
-    }
+        if self.cols != other.cols {
+            panic!("Dimensions are not compatible: A.cols != B.cols");
+        }
 
+        if (self.rows == other.rows) || (other.rows == 1) {
+            let mut data = vec![0.0; self.data.len()];
+            if other.rows == self.rows {
+                for i in 0..self.rows {
+                    for j in 0..self.cols {
+                        data[i * self.cols + j] =
+                            self.data[i * self.cols + j] - other.data[i * self.cols + j];
+                    }
+                }
+            } else {
+                for i in 0..self.rows {
+                    for j in 0..self.cols {
+                        data[i * self.cols + j] = self.data[i * self.cols + j] - other.data[j];
+                    }
+                }
+            }
+            Matrix::new(self.rows, self.cols, data)
+        } else {
+            panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -452,149 +500,134 @@ mod tests {
 
     #[test]
     fn test_scalar_positive() {
-        let mut m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
         let b = Matrix::new(1, 1, vec![2.0]);
-        let _ = &mut m * &b;
-        assert_eq!(m.data, vec![2.0, 4.0, 6.0, 8.0]);
+        let res = &m * &b;
+        assert_eq!(res.data, vec![2.0, 4.0, 6.0, 8.0]);
     }
 
     #[test]
     fn test_scalar_zero() {
-        let mut m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
         let b = Matrix::new(1, 1, vec![0.0]);
-        let _ = &mut m * &b;
-        assert_eq!(m.data, vec![0.0, 0.0, 0.0, 0.0]);
+        let res = &m * &b;
+        assert_eq!(res.data, vec![0.0, 0.0, 0.0, 0.0]);
     }
 
     #[test]
     fn test_scalar_one() {
-        let mut m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
         let b = Matrix::new(1, 1, vec![1.0]);
-        let _ = &mut m * &b;
-        assert_eq!(m.data, vec![1.0, 2.0, 3.0, 4.0]); // No change
+        let res = &m * &b;
+        assert_eq!(res.data, vec![1.0, 2.0, 3.0, 4.0]); // No change
     }
 
     #[test]
     fn test_scalar_negative() {
-        let mut m = Matrix::new(1, 3, vec![10.0, -20.0, 30.0]);
+        let m = Matrix::new(1, 3, vec![10.0, -20.0, 30.0]);
         let b = Matrix::new(1, 1, vec![-0.5]);
-        let _ = &mut m * &b;
-        assert_eq!(m.data, vec![-5.0, 10.0, -15.0]);
+        let res = &m * &b;
+        assert_eq!(res.data, vec![-5.0, 10.0, -15.0]);
     }
 
     #[test]
     fn test_scalar_empty_matrix() {
-        let mut m = Matrix::new(0, 3, vec![]); // 0x3 matrix
+        let m = Matrix::new(0, 3, vec![]); // 0x3 matrix
         let b = Matrix::new(1, 1, vec![10.0]);
-        let _ = &mut m * &b;
-        assert_eq!(m.data, vec![]); // No change, no panic
+        let res = &m * &b;
+        assert_eq!(res.data, vec![]); // No change, no panic
     }
 
     #[test]
     fn test_broadcast_as_scalar() {
-        let mut m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
         let b = Matrix::new(1, 1, vec![3.0]);
-        let res = &mut m * &b;
-
-        assert!(res.is_ok());
-        assert_eq!(m.data, vec![3.0, 6.0, 9.0, 12.0]);
+        let res = &m * &b;
+        assert_eq!(res.data, vec![3.0, 6.0, 9.0, 12.0]);
     }
 
     #[test]
+    #[should_panic]
     fn test_broadcast_err_col_mismatch() {
-        let mut m = Matrix::new(2, 3, vec![1.0; 6]);
+        let m = Matrix::new(2, 3, vec![1.0; 6]);
         let b = Matrix::new(1, 2, vec![1.0; 2]); // 1x2
-        let res = &mut m * &b;
-
-        assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err(),
-            "Dimensions are not compatible: A.cols != B.cols"
-        );
+        let _ = &m * &b;
     }
 
     #[test]
     fn test_broadcast_row_broadcast() {
-        let mut m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let b = Matrix::new(1, 2, vec![2.0, 3.0]);
 
-        let _ = &mut m * &b;
+        let res = &m * &b;
 
-        assert!(m.data == [2.0, 6.0, 6.0, 12.0, 10.0, 18.0]);
+        assert_eq!(res.data, [2.0, 6.0, 6.0, 12.0, 10.0, 18.0]);
     }
 
     #[test]
     fn test_broadcast_element_wise() {
-        let mut m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let b = Matrix::new(3, 2, vec![1.0; 6]);
 
-        let _ = &mut m * &b;
+        let res = &m * &b;
 
-        assert!(m.data == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(res.data, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     }
 
     #[test]
     fn test_broadcast_double_multiply() {
-        let mut m = Matrix::new(1, 3, vec![1.0, 2.0, 3.0]);
+        let m = Matrix::new(1, 3, vec![1.0, 2.0, 3.0]);
         let b = Matrix::new(1, 3, vec![2.0, 3.0, 4.0]);
 
-        let res = &mut m * &b;
-        assert!(res.is_ok());
+        let res = &m * &b;
 
-        assert_eq!(m.data, [2.0, 6.0, 12.0]);
+        assert_eq!(res.data, [2.0, 6.0, 12.0]);
     }
 
     #[test]
     fn test_broadcast_as_scalar_add() {
-        let mut m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let m = Matrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
         let b = Matrix::new(1, 1, vec![3.0]);
-        let res = &mut m + &b;
+        let res = &m + &b;
 
-        assert!(res.is_ok());
-        assert_eq!(m.data, vec![4.0, 5.0, 6.0, 7.0]);
+        assert_eq!(res.data, vec![4.0, 5.0, 6.0, 7.0]);
     }
 
     #[test]
+    #[should_panic]
     fn test_broadcast_err_col_mismatch_add() {
-        let mut m = Matrix::new(2, 3, vec![1.0; 6]);
+        let m = Matrix::new(2, 3, vec![1.0; 6]);
         let b = Matrix::new(1, 2, vec![1.0; 2]); // 1x2
-        let res = &mut m + &b;
-
-        assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err(),
-            "Dimensions are not compatible: A.cols != B.cols"
-        );
+        let _ = &m + &b;
     }
 
     #[test]
     fn test_broadcast_row_broadcast_add() {
-        let mut m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let b = Matrix::new(1, 2, vec![2.0, 3.0]);
 
-        let _ = &mut m + &b;
+        let res = &m + &b;
 
-        assert!(m.data == [3.0, 5.0, 5.0, 7.0, 7.0, 9.0]);
+        assert_eq!(res.data, [3.0, 5.0, 5.0, 7.0, 7.0, 9.0]);
     }
 
     #[test]
     fn test_broadcast_element_wise_add() {
-        let mut m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m = Matrix::new(3, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let b = Matrix::new(3, 2, vec![1.0; 6]);
 
-        let _ = &mut m + &b;
+        let res = &m + &b;
 
-        assert!(m.data == [2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
+        assert_eq!(res.data, [2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
     }
 
     #[test]
     fn test_broadcast_double_add() {
-        let mut m = Matrix::new(1, 3, vec![1.0, 2.0, 3.0]);
+        let m = Matrix::new(1, 3, vec![1.0, 2.0, 3.0]);
         let b = Matrix::new(1, 3, vec![2.0, 3.0, 4.0]);
 
-        let res = &mut m + &b;
-        assert!(res.is_ok());
+        let res = &m + &b;
 
-        assert_eq!(m.data, [3.0, 5.0, 7.0]);
+        assert_eq!(res.data, [3.0, 5.0, 7.0]);
     }
 }

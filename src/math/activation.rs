@@ -1,5 +1,6 @@
 use crate::math::matrix::Matrix;
 
+#[allow(dead_code)]
 pub fn relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -7,9 +8,10 @@ pub fn relu(m: &Matrix) -> Matrix {
         data[i] = 0_f64.max(m.data[i]);
     }
 
-    Matrix::new(m.rows, m.cols, data)
+    Matrix::new(m.rows(), m.cols(), data)
 }
 
+#[allow(dead_code)]
 pub fn d_relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -20,9 +22,10 @@ pub fn d_relu(m: &Matrix) -> Matrix {
         }
     }
 
-    Matrix::new(m.rows, m.cols, data)
+    Matrix::new(m.rows(), m.cols(), data)
 }
 
+#[allow(dead_code)]
 pub fn sigmoid(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -30,11 +33,12 @@ pub fn sigmoid(m: &Matrix) -> Matrix {
         data[i] = 1.0 / (1.0 + std::f64::consts::E.powf(-m.data[i]));
     }
 
-    Matrix::new(m.rows, m.cols, data)
+    Matrix::new(m.rows(), m.cols(), data)
 }
 
+#[allow(dead_code)]
 pub fn d_sigmoid(m: &Matrix) -> Matrix {
-    let one = Matrix::new(m.rows, m.cols, vec![1.0; m.rows * m.cols]);
+    let one = Matrix::repeat(m.rows(), m.cols(), 1.0);
     let s = sigmoid(m);
     let r = &one - &s;
     &s * &r

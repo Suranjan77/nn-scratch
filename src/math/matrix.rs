@@ -1,6 +1,6 @@
 use rand::distr::{Distribution, Uniform};
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, Mul, Sub};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Matrix {
@@ -11,7 +11,6 @@ pub struct Matrix {
 }
 
 impl Matrix {
-
     pub fn rows(&self) -> usize {
         if self.transposed {
             self.cols
@@ -81,6 +80,15 @@ impl Matrix {
         }
 
         Ok(res)
+    }
+
+    #[allow(dead_code)]
+    pub fn powi(&self, exp: i32) -> Self {
+        let mut data = vec![0.0; self.cols() * self.rows];
+        for i in 0..data.len() {
+            data[i] = self.data[i].powi(exp);
+        }
+        Matrix::new(self.rows(), self.cols(), data)
     }
 }
 

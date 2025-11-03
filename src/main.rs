@@ -3,7 +3,7 @@ mod math;
 
 use crate::data::generator;
 use crate::math::activation::{d_sigmoid, sigmoid};
-use crate::math::loss_functions::sse;
+use crate::math::loss_functions::{binary_cross_entropy, d_binary_cross_entropy, sse};
 use crate::math::matrix::Matrix;
 use serde_json::{json, Value};
 use std::fs::File;
@@ -24,35 +24,36 @@ fn train() {
     let mut w1 = Matrix::uniform(6, 1);
     let mut b1 = Matrix::repeat(6, 1, 1.0);
 
-    // hidden layer 2: 9 neurons
-    let mut w2 = Matrix::uniform(12, 6);
-    let mut b2 = Matrix::repeat(12, 1, 1.0);
+    // hidden layer 2: 12 neurons
+    let mut w2 = Matrix::uniform(9, 6);
+    let mut b2 = Matrix::repeat(9, 1, 1.0);
 
     // hidden layer 3: 6 neurons
-    let mut w3 = Matrix::uniform(6, 12);
+    let mut w3 = Matrix::uniform(6, 9);
     let mut b3 = Matrix::repeat(6, 1, 1.0);
 
     // output layer: 2 neurons
     let mut w4 = Matrix::uniform(2, 6);
     let mut b4 = Matrix::repeat(2, 1, 1.0);
 
-    let epoch = 8;
-    let batch_size = 10000 / epoch;
-    let learning_rate = 0.00001;
+    let epoch = 100;
+    let batch_size = 100;
+    let learning_rate = 0.001;
 
     for e in 0..epoch {
         let train_batch = &training_data[e * batch_size..(e * batch_size + batch_size)];
 
         let mut training_loss = 0.0;
 
-        let mut grad_w1s: Matrix = Matrix::repeat(w1.rows(), w1.cols(), 0.0);
-        let mut grad_w2s: Matrix = Matrix::repeat(w2.rows(), w2.cols(), 0.0);
-        let mut grad_w3s: Matrix = Matrix::repeat(w3.rows(), w3.cols(), 0.0);
-        let mut grad_w4s: Matrix = Matrix::repeat(w4.rows(), w4.cols(), 0.0);
-        let mut grad_b1s: Matrix = Matrix::repeat(b1.rows(), b1.cols(), 0.0);
-        let mut grad_b2s: Matrix = Matrix::repeat(b2.rows(), b2.cols(), 0.0);
-        let mut grad_b3s: Matrix = Matrix::repeat(b3.rows(), b3.cols(), 0.0);
-        let mut grad_b4s: Matrix = Matrix::repeat(b4.rows(), b4.cols(), 0.0);
+        let mut dw1 = Matrix::repeat(w1.rows(), w1.cols(), 0.0);
+        let mut dw2 = Matrix::repeat(w2.rows(), w2.cols(), 0.0);
+        let mut dw3 = Matrix::repeat(w3.rows(), w3.cols(), 0.0);
+        let mut dw4 = Matrix::repeat(w4.rows(), w4.cols(), 0.0);
+
+        let mut db1 = Matrix::repeat(b1.rows(), b1.cols(), 0.0);
+        let mut db2 = Matrix::repeat(b2.rows(), b2.cols(), 0.0);
+        let mut db3 = Matrix::repeat(b3.rows(), b3.cols(), 0.0);
+        let mut db4 = Matrix::repeat(b4.rows(), b4.cols(), 0.0);
 
         for d in train_batch.iter() {
             let mut x = Matrix::new(1, 1, vec![d.0]);
@@ -74,14 +75,13 @@ fn train() {
             // Layer 4
             let a4 = &w4.dot(&z3).unwrap() + &b4;
             let yhat = sigmoid(&a4);
-            training_loss += sse(&yhat, &y);
+            training_loss += binary_cross_entropy(&yhat, &y);
 
             // ==== gradient calculation ====
             // layer 4 gradient
-            let e4 = &(&yhat - &y) * &d_sigmoid(&a4);
+            let e4 = &d_binary_cross_entropy(&yhat, &y) * &d_sigmoid(&a4);
             z3.transpose();
             let grad_w4 = e4.dot(&z3).unwrap();
-            z3.transpose();
 
             // layer 3 gradient
             w4.transpose();
@@ -104,54 +104,41 @@ fn train() {
             let grad_w1 = e1.dot(&x).unwrap();
             x.transpose();
 
-            grad_w4s = &grad_w4s + &grad_w4;
-            grad_w3s = &grad_w3s + &grad_w3;
-            grad_w2s = &grad_w2s + &grad_w2;
-            grad_w1s = &grad_w1s + &grad_w1;
+            dw1 = &dw1 + &grad_w1;
+            dw2 = &dw2 + &grad_w2;
+            dw3 = &dw3 + &grad_w3;
+            dw4 = &dw4 + &grad_w4;
 
-            grad_b4s = &grad_b4s + &e4;
-            grad_b3s = &grad_b3s + &e3;
-            grad_b2s = &grad_b2s + &e2;
-            grad_b1s = &grad_b1s + &e1;
+            db1 = &db1 + &e1;
+            db2 = &db2 + &e2;
+            db3 = &db3 + &e3;
+            db4 = &db4 + &e4;
 
-            // Transpose weights back to initial shape
             w2.transpose();
             w3.transpose();
             w4.transpose();
         }
 
         // Update weights and bias
-        // calculating average of individual training gradient multiplied by learning rate
-        let dw1 =
-            &Matrix::repeat(w1.rows(), w1.cols(), learning_rate / batch_size as f64) * &grad_w1s;
-        let dw2 =
-            &Matrix::repeat(w2.rows(), w2.cols(), learning_rate / batch_size as f64) * &grad_w2s;
-        let dw3 =
-            &Matrix::repeat(w3.rows(), w3.cols(), learning_rate / batch_size as f64) * &grad_w3s;
-        let dw4 =
-            &Matrix::repeat(w4.rows(), w4.cols(), learning_rate / batch_size as f64) * &grad_w4s;
+        w1 = &w1
+            - &(&Matrix::repeat(w1.rows(), w1.cols(), learning_rate / batch_size as f64) * &dw1);
+        w2 = &w2
+            - &(&Matrix::repeat(w2.rows(), w2.cols(), learning_rate / batch_size as f64) * &dw2);
+        w3 = &w3
+            - &(&Matrix::repeat(w3.rows(), w3.cols(), learning_rate / batch_size as f64) * &dw3);
+        w4 = &w4
+            - &(&Matrix::repeat(w4.rows(), w4.cols(), learning_rate / batch_size as f64) * &dw4);
 
-        let db1 =
-            &Matrix::repeat(b1.rows(), b1.cols(), learning_rate / batch_size as f64) * &grad_b1s;
-        let db2 =
-            &Matrix::repeat(b2.rows(), b2.cols(), learning_rate / batch_size as f64) * &grad_b2s;
-        let db3 =
-            &Matrix::repeat(b3.rows(), b3.cols(), learning_rate / batch_size as f64) * &grad_b3s;
-        let db4 =
-            &Matrix::repeat(b4.rows(), b4.cols(), learning_rate / batch_size as f64) * &grad_b4s;
+        b1 = &b1
+            - &(&Matrix::repeat(b1.rows(), b1.cols(), learning_rate / batch_size as f64) * &db1);
+        b2 = &b2
+            - &(&Matrix::repeat(b2.rows(), b2.cols(), learning_rate / batch_size as f64) * &db2);
+        b3 = &b3
+            - &(&Matrix::repeat(b3.rows(), b3.cols(), learning_rate / batch_size as f64) * &db3);
+        b4 = &b4
+            - &(&Matrix::repeat(b4.rows(), b4.cols(), learning_rate / batch_size as f64) * &db4);
 
-        // Back propagate gradients
-        w1 = &w1 - &dw1;
-        w2 = &w2 - &dw2;
-        w3 = &w3 - &dw3;
-        w4 = &w4 - &dw4;
-
-        b1 = &b1 - &db1;
-        b2 = &b2 - &db2;
-        b3 = &b3 - &db3;
-        b4 = &b4 - &db4;
-
-        training_loss /= batch_size as f64 * 2.0;
+        training_loss /= batch_size as f64;
         println!("Epoch: {} Train Loss: {}", e, training_loss);
     }
 

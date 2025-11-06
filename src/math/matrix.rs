@@ -51,6 +51,21 @@ impl Matrix {
     }
 
     #[allow(dead_code)]
+    pub fn eye(size: usize) -> Self {
+        let mut data = vec![0.0; size * size];
+        for i in 0..size {
+            for j in 0..size {
+                if i == j {
+                    data[i * size + j] = 1.0;
+                } else {
+                    data[i * size + j] = 0.0;
+                }
+            }
+        }
+        Matrix::new(size, size, data)
+    }
+
+    #[allow(dead_code)]
     pub fn repeat(rows: usize, cols: usize, repeat_value: f64) -> Self {
         let data = vec![repeat_value; rows * cols];
         Matrix::new(rows, cols, data)

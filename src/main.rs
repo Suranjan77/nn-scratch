@@ -10,6 +10,7 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 
 fn main() {
+    // println!("{}", Matrix::eye(8));
     train();
     test();
 }
@@ -201,7 +202,7 @@ fn test() {
         let a4 = &w4.dot(&z3).unwrap() + &b4;
         let yhat = sigmoid(&a4);
 
-        println!("X: {:?}, Y: {:?}", x.data[0], yhat.data);
+        println!("X: {} Y: {}", x, yhat);
         test_loss += sse(&yhat, &y);
     }
 

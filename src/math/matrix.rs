@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use rand::distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Mul, Sub};
@@ -221,6 +222,21 @@ impl Sub for &Matrix {
         } else {
             panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
         }
+    }
+}
+
+impl Display for Matrix {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut disp = String::with_capacity(2 * (self.rows * self.cols));
+        disp.push('\n');
+        for i in 0..self.rows() {
+            for j in 0..self.cols() {
+                disp.push_str(&format!("{} ", self.data[i * self.cols() + j]));
+            }
+            disp.push('\n');
+        }
+        disp.push_str(&format!("({}, {})\n", self.rows(), self.cols()));
+        write!(f, "{}", disp)
     }
 }
 

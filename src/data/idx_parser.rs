@@ -15,14 +15,16 @@ pub fn parse(file_path: &str) -> Vec<Matrix> {
 
             let mut y: Vec<Matrix> = vec![];
             if dim_count == 1 {
+                // Labels
                 let mut first_dim = [0_u8; 4];
                 let _ = br.read(&mut first_dim).unwrap();
                 for _ in 0..u32::from_be_bytes(first_dim) {
                     let mut d = [0_u8; 1];
                     let _ = br.read_exact(&mut d[..]).unwrap();
-                    y.push(Matrix::new(1, 1, vec![d[0] as f64]));
+                    y.push(one_hot(d[0]));
                 }
             } else {
+                // Image matrices
                 let mut first_dim = [0_u8; 4];
                 let _ = br.read(&mut first_dim).unwrap();
                 // Flatten vector of the 28x28 image
@@ -43,5 +45,62 @@ pub fn parse(file_path: &str) -> Vec<Matrix> {
             println!("{:?}", e);
             panic!("Failed to open file");
         }
+    }
+}
+
+#[inline]
+fn one_hot(num: u8) -> Matrix {
+    match num {
+        0 => Matrix::new(
+            10,
+            1,
+            vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ),
+        1 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ),
+        2 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ),
+        3 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ),
+        4 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ),
+        5 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        ),
+        6 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        ),
+        7 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+        ),
+        8 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        ),
+        9 => Matrix::new(
+            10,
+            1,
+            vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        ),
+        _ => unreachable!(),
     }
 }

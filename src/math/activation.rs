@@ -44,6 +44,24 @@ pub fn d_sigmoid(m: &Matrix) -> Matrix {
     &s * &r
 }
 
+// Softmax is almost always paired with cross-entropy loss function to prevent vanishing gradient and also allows calculation of gradient in simpler way.
+// y_hat - y is the gradient so, no need to explicitly calculate derivative of softmax.
+#[allow(dead_code)]
+pub fn softmax(m: &Matrix) -> Matrix {
+    let mut data = vec![0_f64; m.data.len()];
+    let sum = m
+        .data
+        .iter()
+        .map(|x| x.exp())
+        .reduce(|acc, x| acc + x)
+        .unwrap_or(0.0);
+    for i in 0..m.data.len() {
+        data[i] = m.data[i] / sum;
+    }
+
+    Matrix::new(m.rows(), m.cols(), data)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

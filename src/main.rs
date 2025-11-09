@@ -1,9 +1,10 @@
 mod data;
 mod math;
+mod nn;
 
 use crate::data::generator;
-use crate::math::activation::{d_sigmoid, sigmoid};
-use crate::math::loss_functions::{binary_cross_entropy, d_binary_cross_entropy, sse};
+use crate::math::activation::{d_sigmoid, sigmoid, softmax};
+use crate::math::loss_functions::{binary_cross_entropy, cross_entropy, sse};
 use crate::math::matrix::Matrix;
 use serde_json::{json, Value};
 use std::fs::File;
@@ -75,12 +76,12 @@ fn train() {
 
             // Layer 4
             let a4 = &w4.dot(&z3).unwrap() + &b4;
-            let yhat = sigmoid(&a4);
-            training_loss += binary_cross_entropy(&yhat, &y);
+            let y_hat = softmax(&a4);
+            training_loss += cross_entropy(&y_hat, &y);
 
             // ==== gradient calculation ====
             // layer 4 gradient
-            let e4 = &d_binary_cross_entropy(&yhat, &y) * &d_sigmoid(&a4);
+            let e4 = &y_hat - &y;
             z3.transpose();
             let grad_w4 = e4.dot(&z3).unwrap();
 

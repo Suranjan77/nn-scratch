@@ -56,6 +56,29 @@ impl Network {
         }
     }
 
+    pub fn add_inp_layer(
+        &mut self,
+        neurons: usize,
+        input_size: usize,
+        activation: fn(&Matrix) -> Matrix,
+        d_activation: Option<fn(&Matrix) -> Matrix>,
+    ) {
+        self.layers.push(Layer {
+            weights: Matrix::uniform(neurons, input_size),
+            activation,
+            bias: Matrix::repeat(neurons, 1, 0.0),
+            d_activation,
+        });
+
+        self.back_prop_states
+            .gradients
+            .push(Matrix::repeat(neurons, input_size, 0.0));
+
+        self.back_prop_states
+            .errors
+            .push(Matrix::repeat(neurons, 1, 0.0));
+    }
+
     pub fn add_layer(
         &mut self,
         neurons: usize,
@@ -63,29 +86,20 @@ impl Network {
         d_activation: Option<fn(&Matrix) -> Matrix>,
     ) {
         if self.layers.is_empty() {
-            self.layers.push(Layer {
-                weights: Matrix::uniform(neurons, 1),
-                activation,
-                bias: Matrix::repeat(neurons, 1, 0.0),
-                d_activation,
-            });
-
-            self.back_prop_states
-                .gradients
-                .push(Matrix::repeat(neurons, 1, 0.0));
-        } else {
-            let prev_rows = self.layers.last().unwrap().weights.rows();
-            self.layers.push(Layer {
-                weights: Matrix::uniform(neurons, prev_rows),
-                activation,
-                bias: Matrix::repeat(neurons, 1, 0.0),
-                d_activation,
-            });
-
-            self.back_prop_states
-                .gradients
-                .push(Matrix::repeat(neurons, prev_rows, 0.0));
+            panic!("Add an input layer before adding hidden layers");
         }
+        
+        let prev_rows = self.layers.last().unwrap().weights.rows();
+        self.layers.push(Layer {
+            weights: Matrix::uniform(neurons, prev_rows),
+            activation,
+            bias: Matrix::repeat(neurons, 1, 0.0),
+            d_activation,
+        });
+
+        self.back_prop_states
+            .gradients
+            .push(Matrix::repeat(neurons, prev_rows, 0.0));
 
         self.back_prop_states
             .errors
@@ -142,14 +156,15 @@ impl Network {
         g_s.gradients[depth - 1] = g_s.gradients.last().unwrap() + &grad;
 
         for i in (1..self.layers.len() - 1).rev() {
-            let hidden_layer = &mut self.layers[i];
-            hidden_layer.weights.transpose();
+            let d_activation = self.layers[i].d_activation;
+            let next_layer = &mut self.layers[i + 1];
+            next_layer.weights.transpose();
 
             let e_next_layer = g_s.errors.last().unwrap();
             let a = f_s.pre_activation.pop().unwrap();
-            let e = match hidden_layer.d_activation {
-                Some(ref d) => &hidden_layer.weights.dot(&e_next_layer).unwrap() * &d(&a),
-                None => hidden_layer.weights.dot(&e_next_layer).unwrap(),
+            let e = match d_activation {
+                Some(ref d) => &next_layer.weights.dot(&e_next_layer).unwrap() * &d(&a),
+                None => next_layer.weights.dot(&e_next_layer).unwrap(),
             };
             let mut z_prev = f_s.activations.pop().unwrap();
             z_prev.transpose();
@@ -157,7 +172,7 @@ impl Network {
             g_s.gradients[i] = &g_s.gradients[i] + &grad;
             errors.push(e);
 
-            hidden_layer.weights.transpose();
+            next_layer.weights.transpose();
         }
 
         let input_layer = &mut self.layers[0];

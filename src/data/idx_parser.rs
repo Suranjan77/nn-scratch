@@ -7,11 +7,9 @@ pub fn parse(file_path: &str) -> Vec<Matrix> {
             let mut br = BufReader::new(file);
             let mut magic_num = [0_u8; 4];
             let _ = br.read(&mut magic_num[..]).unwrap();
-            println!("Magic number {:?}", magic_num);
             // We are reading MNIST idx file which has ubyte data, so no need to check for data type.
             // Only checking for dimensions as images have 3 dimensions and labels has 1
             let dim_count = magic_num[3] as usize;
-            println!("Dimensions count: {}", dim_count);
 
             let mut y: Vec<Matrix> = vec![];
             if dim_count == 1 {

@@ -1,2 +1,2 @@
 #![allow(dead_code)]
-mod perceptron;
+pub mod perceptron;

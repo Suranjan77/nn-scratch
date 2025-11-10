@@ -47,6 +47,7 @@ fn main() {
 
     // let test_data = idx_parser::parse("mnist_data/t10k-labels.idx3-ubyte");
     // let test_labels = idx_parser::parse("mnist_data/t10k-labels.idx3-ubyte");
+    // todo: serialise/de-serialise the model
 }
 
 #[allow(dead_code)]

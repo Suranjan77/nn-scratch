@@ -32,6 +32,7 @@ impl Gradients {
         }
     }
 }
+
 impl FeedForwardStates {
     pub fn new() -> Self {
         FeedForwardStates {
@@ -88,7 +89,7 @@ impl Network {
         if self.layers.is_empty() {
             panic!("Add an input layer before adding hidden layers");
         }
-        
+
         let prev_rows = self.layers.last().unwrap().weights.rows();
         self.layers.push(Layer {
             weights: Matrix::uniform(neurons, prev_rows),
@@ -135,7 +136,7 @@ impl Network {
         (self.loss_fn)(f_s.activations.last().unwrap(), y)
     }
 
-    pub fn calc_gradients(&mut self, x: &Matrix, y: &Matrix) {
+    pub fn calc_gradients(&mut self, x: &mut Matrix, y: &Matrix) {
         if !self.feed_forward_states.is_initialised() {
             panic!("Feed forward state not initialised, feed training data first.");
         }
@@ -160,12 +161,9 @@ impl Network {
             let next_layer = &mut self.layers[i + 1];
             next_layer.weights.transpose();
 
-            let e_next_layer = g_s.errors.last().unwrap();
+            let e_next_layer = errors.last().unwrap();
             let a = f_s.pre_activation.pop().unwrap();
-            let e = match d_activation {
-                Some(ref d) => &next_layer.weights.dot(&e_next_layer).unwrap() * &d(&a),
-                None => next_layer.weights.dot(&e_next_layer).unwrap(),
-            };
+            let e = &next_layer.weights.dot(&e_next_layer).unwrap() * &(d_activation.unwrap())(&a);
             let mut z_prev = f_s.activations.pop().unwrap();
             z_prev.transpose();
             let grad = e.dot(&z_prev).unwrap();
@@ -175,18 +173,18 @@ impl Network {
             next_layer.weights.transpose();
         }
 
-        let input_layer = &mut self.layers[0];
-        input_layer.weights.transpose();
-        let e_next_layer = g_s.errors.last().unwrap();
+        let inp_activation = &mut self.layers[0].d_activation.unwrap();
+        let next_layer = &mut self.layers[1];
+        next_layer.weights.transpose();
+        let e_next_layer = errors.last().unwrap();
         let a = f_s.pre_activation.pop().unwrap();
-        let e = match input_layer.d_activation {
-            Some(ref d) => &input_layer.weights.dot(&e_next_layer).unwrap() * &d(&a),
-            None => input_layer.weights.dot(&e_next_layer).unwrap(),
-        };
+        let e = &next_layer.weights.dot(&e_next_layer).unwrap() * &inp_activation(&a);
+        x.transpose();
         let grad = e.dot(&x).unwrap();
+        x.transpose();
         g_s.gradients[0] = &g_s.gradients[0] + &grad;
         errors.push(e);
-        input_layer.weights.transpose();
+        next_layer.weights.transpose();
 
         errors.reverse();
 

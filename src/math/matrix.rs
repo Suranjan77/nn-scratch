@@ -1,6 +1,6 @@
-use std::fmt::{Display, Formatter};
 use rand::distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, Mul, Sub};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,7 +28,6 @@ impl Matrix {
         }
     }
 
-    
     pub fn new(rows: usize, cols: usize, data: Vec<f64>) -> Self {
         if rows * cols != data.len() {
             panic!("Data length does not match dimensions");
@@ -41,7 +40,6 @@ impl Matrix {
         }
     }
 
-    
     pub fn uniform(rows: usize, cols: usize) -> Self {
         let mut rng = rand::rng();
         let distribution = Uniform::try_from(-1.0..1.0).unwrap();
@@ -51,7 +49,6 @@ impl Matrix {
         Matrix::new(rows, cols, data)
     }
 
-    
     pub fn eye(size: usize) -> Self {
         let mut data = vec![0.0; size * size];
         for i in 0..size {
@@ -66,19 +63,45 @@ impl Matrix {
         Matrix::new(size, size, data)
     }
 
-    
     pub fn repeat(rows: usize, cols: usize, repeat_value: f64) -> Self {
         let data = vec![repeat_value; rows * cols];
         Matrix::new(rows, cols, data)
     }
 
-    
     pub fn transpose(&mut self) {
         self.transposed = !self.transposed;
     }
 
-    
     pub fn dot(&self, other: &Matrix) -> Result<Matrix, &'static str> {
+        if self.cols() != other.rows() {
+            return Err("Matrix multiplication dimension mismatch: A.cols != B.rows");
+        }
+
+        let mut data = vec![0.0; self.rows() * other.cols()];
+
+        // Matrix multiplication using double precision matrices multiplication routine from matrixmultiply crate.
+        unsafe {
+            matrixmultiply::dgemm(
+                self.rows(),
+                self.cols(),
+                other.cols(),
+                1.0,
+                self.data.as_ptr(),
+                self.cols() as isize,
+                1,
+                other.data.as_ptr(),
+                other.cols() as isize,
+                1,
+                0.0,
+                data.as_mut_ptr(),
+                other.cols() as isize,
+                1,
+            );
+        }
+
+        Ok(Matrix::new(self.rows(), other.cols(), data))
+    }
+    pub fn dot_general(&self, other: &Matrix) -> Result<Matrix, &'static str> {
         if self.cols() != other.rows() {
             return Err("Matrix multiplication dimension mismatch: A.cols != B.rows");
         }
@@ -98,7 +121,6 @@ impl Matrix {
         Ok(res)
     }
 
-    
     pub fn powi(&self, exp: i32) -> Self {
         let mut data = vec![0.0; self.cols() * self.rows];
         for i in 0..data.len() {
@@ -244,6 +266,23 @@ impl Display for Matrix {
 mod tests {
     use super::*;
 
+    /// Helper function to compare two vectors of floats for approximate equality.
+    /// Standard `assert_eq!` will fail due to floating-point inaccuracies.
+    fn assert_vec_approx_eq(a: &[f64], b: &[f64]) {
+        let epsilon = 1e-9; // A small tolerance for floating point comparison
+
+        assert_eq!(a.len(), b.len(), "Test vectors have different lengths.");
+
+        for (i, (val_a, val_b)) in a.iter().zip(b.iter()).enumerate() {
+            if (val_a - val_b).abs() > epsilon {
+                panic!(
+                    "Vectors differ at index {}: left = {}, right = {}",
+                    i, val_a, val_b
+                );
+            }
+        }
+    }
+
     #[test]
     fn two_by_tow() {
         let a = Matrix::new(2, 2, vec![2.1, 2.3, 1.2, 1.4]);
@@ -253,9 +292,9 @@ mod tests {
 
         assert_eq!(res.rows(), a.rows());
         assert_eq!(res.cols(), b.cols());
-        assert_eq!(
-            res.data,
-            vec![9.399999999999999, 8.73, 5.619999999999999, 5.22]
+        assert_vec_approx_eq(
+            &res.data,
+            &[9.399999999999999, 8.73, 5.619999999999999, 5.22],
         );
     }
 

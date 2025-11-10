@@ -1,6 +1,5 @@
 use crate::math::matrix::Matrix;
 
-
 pub fn relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -10,7 +9,6 @@ pub fn relu(m: &Matrix) -> Matrix {
 
     Matrix::new(m.rows(), m.cols(), data)
 }
-
 
 pub fn d_relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
@@ -25,7 +23,6 @@ pub fn d_relu(m: &Matrix) -> Matrix {
     Matrix::new(m.rows(), m.cols(), data)
 }
 
-
 pub fn sigmoid(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -35,7 +32,6 @@ pub fn sigmoid(m: &Matrix) -> Matrix {
 
     Matrix::new(m.rows(), m.cols(), data)
 }
-
 
 pub fn d_sigmoid(m: &Matrix) -> Matrix {
     let one = Matrix::repeat(m.rows(), m.cols(), 1.0);
@@ -56,7 +52,7 @@ pub fn softmax(m: &Matrix) -> Matrix {
         .reduce(|acc, x| acc + x)
         .unwrap_or(0.0);
     for i in 0..m.data.len() {
-        data[i] = m.data[i] / sum;
+        data[i] = m.data[i].exp() / sum;
     }
 
     Matrix::new(m.rows(), m.cols(), data)

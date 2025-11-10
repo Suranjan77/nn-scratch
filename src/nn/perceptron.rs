@@ -173,6 +173,8 @@ impl Network {
         errors.push(e);
         input_layer.weights.transpose();
 
+        errors.reverse();
+
         for i in 0..g_s.errors.len() {
             g_s.errors[i] = &g_s.errors[i] + &errors[i];
         }

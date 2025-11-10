@@ -4,7 +4,7 @@ mod nn;
 
 use crate::data::generator;
 use crate::math::activation::{d_sigmoid, sigmoid, softmax};
-use crate::math::loss_functions::{binary_cross_entropy, cross_entropy, sse};
+use crate::math::loss_functions::{cross_entropy, sse};
 use crate::math::matrix::Matrix;
 use serde_json::{json, Value};
 use std::fs::File;

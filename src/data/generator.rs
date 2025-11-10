@@ -11,7 +11,7 @@ fn function_to_approximate(x: f64) -> [f64; 2] {
     }
 }
 
-#[allow(dead_code)]
+
 pub fn generate_train(sample_size: usize) -> Vec<(f64, [f64; 2])> {
     let mut data: Vec<(f64, [f64; 2])> = Vec::with_capacity(sample_size);
 
@@ -24,7 +24,7 @@ pub fn generate_train(sample_size: usize) -> Vec<(f64, [f64; 2])> {
     data
 }
 
-#[allow(dead_code)]
+
 pub fn generate_test(sample_size: usize) -> Vec<(f64, [f64; 2])> {
     let mut data: Vec<(f64, [f64; 2])> = Vec::with_capacity(sample_size);
 
@@ -37,7 +37,7 @@ pub fn generate_test(sample_size: usize) -> Vec<(f64, [f64; 2])> {
     data
 }
 
-#[allow(dead_code)]
+
 pub fn generate_validation(sample_size: usize) -> Vec<(f64, [f64; 2])> {
     let mut data: Vec<(f64, [f64; 2])> = Vec::with_capacity(sample_size);
 

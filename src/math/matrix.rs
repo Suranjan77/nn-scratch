@@ -28,7 +28,7 @@ impl Matrix {
         }
     }
 
-    #[allow(dead_code)]
+    
     pub fn new(rows: usize, cols: usize, data: Vec<f64>) -> Self {
         if rows * cols != data.len() {
             panic!("Data length does not match dimensions");
@@ -41,7 +41,7 @@ impl Matrix {
         }
     }
 
-    #[allow(dead_code)]
+    
     pub fn uniform(rows: usize, cols: usize) -> Self {
         let mut rng = rand::rng();
         let distribution = Uniform::try_from(-1.0..1.0).unwrap();
@@ -51,7 +51,7 @@ impl Matrix {
         Matrix::new(rows, cols, data)
     }
 
-    #[allow(dead_code)]
+    
     pub fn eye(size: usize) -> Self {
         let mut data = vec![0.0; size * size];
         for i in 0..size {
@@ -66,18 +66,18 @@ impl Matrix {
         Matrix::new(size, size, data)
     }
 
-    #[allow(dead_code)]
+    
     pub fn repeat(rows: usize, cols: usize, repeat_value: f64) -> Self {
         let data = vec![repeat_value; rows * cols];
         Matrix::new(rows, cols, data)
     }
 
-    #[allow(dead_code)]
+    
     pub fn transpose(&mut self) {
         self.transposed = !self.transposed;
     }
 
-    #[allow(dead_code)]
+    
     pub fn dot(&self, other: &Matrix) -> Result<Matrix, &'static str> {
         if self.cols() != other.rows() {
             return Err("Matrix multiplication dimension mismatch: A.cols != B.rows");
@@ -98,7 +98,7 @@ impl Matrix {
         Ok(res)
     }
 
-    #[allow(dead_code)]
+    
     pub fn powi(&self, exp: i32) -> Self {
         let mut data = vec![0.0; self.cols() * self.rows];
         for i in 0..data.len() {

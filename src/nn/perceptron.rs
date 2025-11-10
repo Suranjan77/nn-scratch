@@ -52,11 +52,16 @@ impl Network {
             loss_fn,
             layers: vec![],
             feed_forward_states: FeedForwardStates::new(),
-             back_prop_states: Gradients::new(),
+            back_prop_states: Gradients::new(),
         }
     }
 
-    pub fn add_layer(&mut self, neurons: usize, activation: fn(&Matrix) -> Matrix, d_activation: Option<fn(&Matrix) -> Matrix>) {
+    pub fn add_layer(
+        &mut self,
+        neurons: usize,
+        activation: fn(&Matrix) -> Matrix,
+        d_activation: Option<fn(&Matrix) -> Matrix>,
+    ) {
         if self.layers.is_empty() {
             self.layers.push(Layer {
                 weights: Matrix::uniform(neurons, 1),
@@ -64,15 +69,27 @@ impl Network {
                 bias: Matrix::repeat(neurons, 1, 1.0),
                 d_activation,
             });
+
+            self.back_prop_states
+                .gradients
+                .push(Matrix::repeat(neurons, 1, 0.0));
         } else {
-            let prev = self.layers.last().unwrap();
+            let prev_rows = self.layers.last().unwrap().weights.rows();
             self.layers.push(Layer {
-                weights: Matrix::uniform(neurons, prev.weights.rows()),
+                weights: Matrix::uniform(neurons, prev_rows),
                 activation,
                 bias: Matrix::repeat(neurons, 1, 1.0),
                 d_activation,
-            })
+            });
+
+            self.back_prop_states
+                .gradients
+                .push(Matrix::repeat(neurons, prev_rows, 0.0));
         }
+
+        self.back_prop_states
+            .errors
+            .push(Matrix::repeat(neurons, 1, 0.0));
     }
 
     pub fn depth(&self) -> usize {
@@ -104,9 +121,8 @@ impl Network {
         (self.loss_fn)(f_s.activations.last().unwrap(), y)
     }
 
-    // todo
     pub fn calc_gradients(&mut self, x: &Matrix, y: &Matrix) {
-        if (!self.feed_forward_states.is_initialised()) {
+        if !self.feed_forward_states.is_initialised() {
             panic!("Feed forward state not initialised, feed training data first.");
         }
 
@@ -119,8 +135,11 @@ impl Network {
         let grad = e.dot(&z_prev).unwrap();
 
         let g_s = &mut self.back_prop_states;
-        g_s.errors.push(e);
-        g_s.gradients.push(grad);
+        let mut errors: Vec<Matrix> = vec![];
+
+        errors.push(e);
+        let depth = g_s.gradients.len();
+        g_s.gradients[depth - 1] = g_s.gradients.last().unwrap() + &grad;
 
         for i in (1..self.layers.len() - 1).rev() {
             let hidden_layer = &mut self.layers[i];
@@ -130,17 +149,53 @@ impl Network {
             let a = f_s.pre_activation.pop().unwrap();
             let e = match hidden_layer.d_activation {
                 Some(ref d) => &hidden_layer.weights.dot(&e_next_layer).unwrap() * &d(&a),
-                None => hidden_layer.weights.dot(&e_next_layer).unwrap()
+                None => hidden_layer.weights.dot(&e_next_layer).unwrap(),
             };
             let mut z_prev = f_s.activations.pop().unwrap();
             z_prev.transpose();
             let grad = e.dot(&z_prev).unwrap();
-            g_s.gradients.push(grad);
-            g_s.errors.push(e);
+            g_s.gradients[i] = &g_s.gradients[i] + &grad;
+            errors.push(e);
 
             hidden_layer.weights.transpose();
         }
 
+        let input_layer = &mut self.layers[0];
+        input_layer.weights.transpose();
+        let e_next_layer = g_s.errors.last().unwrap();
+        let a = f_s.pre_activation.pop().unwrap();
+        let e = match input_layer.d_activation {
+            Some(ref d) => &input_layer.weights.dot(&e_next_layer).unwrap() * &d(&a),
+            None => input_layer.weights.dot(&e_next_layer).unwrap(),
+        };
+        let grad = e.dot(&x).unwrap();
+        g_s.gradients[0] = &g_s.gradients[0] + &grad;
+        errors.push(e);
+        input_layer.weights.transpose();
 
+        for i in 0..g_s.errors.len() {
+            g_s.errors[i] = &g_s.errors[i] + &errors[i];
+        }
+    }
+
+    pub fn update_gradients(&mut self, batch_size: usize) {
+        let g_s = &mut self.back_prop_states;
+
+        for i in 0..g_s.gradients.len() {
+            let layer = &mut self.layers[i];
+            layer.weights = &layer.weights
+                - &(&Matrix::repeat(
+                    layer.weights.rows(),
+                    layer.weights.cols(),
+                    self.learning_rate / batch_size as f64,
+                ) * &g_s.gradients[i]);
+
+            layer.bias = &layer.bias
+                - &(&Matrix::repeat(
+                    layer.bias.rows(),
+                    layer.bias.cols(),
+                    self.learning_rate / batch_size as f64,
+                ) * &g_s.errors[i]);
+        }
     }
 }

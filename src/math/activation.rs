@@ -1,6 +1,6 @@
 use crate::math::matrix::Matrix;
 
-#[allow(dead_code)]
+
 pub fn relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -11,7 +11,7 @@ pub fn relu(m: &Matrix) -> Matrix {
     Matrix::new(m.rows(), m.cols(), data)
 }
 
-#[allow(dead_code)]
+
 pub fn d_relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -25,7 +25,7 @@ pub fn d_relu(m: &Matrix) -> Matrix {
     Matrix::new(m.rows(), m.cols(), data)
 }
 
-#[allow(dead_code)]
+
 pub fn sigmoid(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
 
@@ -36,7 +36,7 @@ pub fn sigmoid(m: &Matrix) -> Matrix {
     Matrix::new(m.rows(), m.cols(), data)
 }
 
-#[allow(dead_code)]
+
 pub fn d_sigmoid(m: &Matrix) -> Matrix {
     let one = Matrix::repeat(m.rows(), m.cols(), 1.0);
     let s = sigmoid(m);
@@ -46,7 +46,7 @@ pub fn d_sigmoid(m: &Matrix) -> Matrix {
 
 // Softmax is almost always paired with cross-entropy loss function to prevent vanishing gradient and also allows calculation of gradient in simpler way.
 // y_hat - y is the gradient so, no need to explicitly calculate derivative of softmax.
-#[allow(dead_code)]
+
 pub fn softmax(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data.len()];
     let sum = m

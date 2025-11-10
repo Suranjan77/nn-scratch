@@ -66,7 +66,7 @@ impl Network {
             self.layers.push(Layer {
                 weights: Matrix::uniform(neurons, 1),
                 activation,
-                bias: Matrix::repeat(neurons, 1, 1.0),
+                bias: Matrix::repeat(neurons, 1, 0.0),
                 d_activation,
             });
 
@@ -78,7 +78,7 @@ impl Network {
             self.layers.push(Layer {
                 weights: Matrix::uniform(neurons, prev_rows),
                 activation,
-                bias: Matrix::repeat(neurons, 1, 1.0),
+                bias: Matrix::repeat(neurons, 1, 0.0),
                 d_activation,
             });
 

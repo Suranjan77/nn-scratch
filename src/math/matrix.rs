@@ -7,25 +7,18 @@ use std::ops::{Add, Mul, Sub};
 pub struct Matrix {
     rows: usize,
     cols: usize,
+    row_stride: usize,
+    col_stride: usize,
     pub data: Vec<f64>,
-    pub transposed: bool,
 }
 
 impl Matrix {
     pub fn rows(&self) -> usize {
-        if self.transposed {
-            self.cols
-        } else {
-            self.rows
-        }
+        self.rows
     }
 
     pub fn cols(&self) -> usize {
-        if self.transposed {
-            self.rows
-        } else {
-            self.cols
-        }
+        self.cols
     }
 
     pub fn new(rows: usize, cols: usize, data: Vec<f64>) -> Self {
@@ -36,7 +29,8 @@ impl Matrix {
             data,
             rows,
             cols,
-            transposed: false,
+            col_stride: 1,
+            row_stride: cols,
         }
     }
 
@@ -69,7 +63,7 @@ impl Matrix {
     }
 
     pub fn transpose(&mut self) {
-        self.transposed = !self.transposed;
+        std::mem::swap(&mut self.row_stride, &mut self.col_stride);
     }
 
     pub fn dot(&self, other: &Matrix) -> Result<Matrix, &'static str> {
@@ -87,11 +81,11 @@ impl Matrix {
                 other.cols(),
                 1.0,
                 self.data.as_ptr(),
-                self.cols() as isize,
-                1,
+                self.row_stride as isize,
+                self.col_stride as isize,
                 other.data.as_ptr(),
-                other.cols() as isize,
-                1,
+                other.col_stride as isize,
+                self.row_stride as isize,
                 0.0,
                 data.as_mut_ptr(),
                 other.cols() as isize,
@@ -100,25 +94,6 @@ impl Matrix {
         }
 
         Ok(Matrix::new(self.rows(), other.cols(), data))
-    }
-    pub fn dot_general(&self, other: &Matrix) -> Result<Matrix, &'static str> {
-        if self.cols() != other.rows() {
-            return Err("Matrix multiplication dimension mismatch: A.cols != B.rows");
-        }
-
-        let mut res = Matrix::repeat(self.rows(), other.cols(), 0.0);
-
-        for i in 0..self.rows() {
-            for j in 0..other.cols() {
-                let mut sum = 0.0;
-                for k in 0..self.cols() {
-                    sum += self.data[i * self.cols() + k] * other.data[k * other.cols() + j];
-                }
-                res.data[i * other.cols() + j] = sum;
-            }
-        }
-
-        Ok(res)
     }
 
     pub fn powi(&self, exp: i32) -> Self {

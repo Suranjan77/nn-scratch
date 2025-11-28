@@ -5,22 +5,14 @@ use std::ops::{Add, Mul, Sub};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Matrix {
-    rows: usize,
-    cols: usize,
+    pub rows: usize,
+    pub cols: usize,
     row_stride: usize,
     col_stride: usize,
-    pub data: Vec<f64>,
+    data: Vec<f64>,
 }
 
 impl Matrix {
-    pub fn rows(&self) -> usize {
-        self.rows
-    }
-
-    pub fn cols(&self) -> usize {
-        self.cols
-    }
-
     pub fn new(rows: usize, cols: usize, data: Vec<f64>) -> Self {
         if rows * cols != data.len() {
             panic!("Data length does not match dimensions");
@@ -32,6 +24,15 @@ impl Matrix {
             col_stride: 1,
             row_stride: cols,
         }
+    }
+
+    pub fn data(&self) -> &[f64] {
+        &self.data
+    }
+
+    #[inline]
+    fn get(&self, row: usize, col: usize) -> f64 {
+        self.data[row * self.row_stride + col * self.col_stride]
     }
 
     pub fn uniform(rows: usize, cols: usize) -> Self {
@@ -46,13 +47,7 @@ impl Matrix {
     pub fn eye(size: usize) -> Self {
         let mut data = vec![0.0; size * size];
         for i in 0..size {
-            for j in 0..size {
-                if i == j {
-                    data[i * size + j] = 1.0;
-                } else {
-                    data[i * size + j] = 0.0;
-                }
-            }
+            data[i * size + i] = 1.0;
         }
         Matrix::new(size, size, data)
     }
@@ -63,45 +58,90 @@ impl Matrix {
     }
 
     pub fn transpose(&mut self) {
+        std::mem::swap(&mut self.rows, &mut self.cols);
         std::mem::swap(&mut self.row_stride, &mut self.col_stride);
     }
 
     pub fn dot(&self, other: &Matrix) -> Result<Matrix, &'static str> {
-        if self.cols() != other.rows() {
+        if self.cols != other.rows {
             return Err("Matrix multiplication dimension mismatch: A.cols != B.rows");
         }
 
-        let mut data = vec![0.0; self.rows() * other.cols()];
+        let mut data = vec![0.0; self.rows * other.cols];
 
         // Matrix multiplication using double precision matrices multiplication routine from matrixmultiply crate.
         unsafe {
             matrixmultiply::dgemm(
-                self.rows(),
-                self.cols(),
-                other.cols(),
+                self.rows,
+                self.cols,
+                other.cols,
                 1.0,
                 self.data.as_ptr(),
                 self.row_stride as isize,
                 self.col_stride as isize,
                 other.data.as_ptr(),
+                other.row_stride as isize,
                 other.col_stride as isize,
-                self.row_stride as isize,
                 0.0,
                 data.as_mut_ptr(),
-                other.cols() as isize,
+                other.cols as isize,
                 1,
             );
         }
 
-        Ok(Matrix::new(self.rows(), other.cols(), data))
+        Ok(Matrix::new(self.rows, other.cols, data))
     }
 
     pub fn powi(&self, exp: i32) -> Self {
-        let mut data = vec![0.0; self.cols() * self.rows];
-        for i in 0..data.len() {
-            data[i] = self.data[i].powi(exp);
+        let mut data = vec![0.0; self.cols * self.rows];
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                data[i] = self.get(i, j).powi(exp);
+            }
         }
-        Matrix::new(self.rows(), self.cols(), data)
+        Matrix::new(self.rows, self.cols, data)
+    }
+
+    fn zip_map<F>(&self, other: &Matrix, op: F) -> Matrix
+    where
+        F: Fn(f64, f64) -> f64,
+    {
+        // Scalar case
+        if other.data.len() == 1 {
+            let scalar = other.data[0];
+            let data = self.data.iter().map(|&x| op(x, scalar)).collect();
+            return Matrix::new(self.rows, self.cols, data);
+        }
+
+        // Dimension Check
+        if self.cols != other.cols {
+            panic!("Dimensions are not compatible: cols mismatch");
+        }
+
+        let output_rows = self.rows;
+        let output_cols = self.cols;
+        let mut new_data = Vec::with_capacity(output_rows * output_cols);
+
+        // Row Broadcasting logic
+        let broadcast_rows = other.rows == 1;
+        if self.rows != other.rows && !broadcast_rows {
+            panic!("Dimensions are not compatible: rows mismatch");
+        }
+
+        // Iterate logically (i, j) and access physical data via strides
+        for i in 0..output_rows {
+            for j in 0..output_cols {
+                let val_self = self.get(i, j);
+
+                // If broadcasting B (1 row), always use row 0
+                let row_other = if broadcast_rows { 0 } else { i };
+                let val_other = other.get(row_other, j);
+
+                new_data.push(op(val_self, val_other));
+            }
+        }
+
+        Matrix::new(output_rows, output_cols, new_data)
     }
 }
 
@@ -109,38 +149,7 @@ impl Mul for &Matrix {
     type Output = Matrix;
 
     fn mul(self, other: &Matrix) -> Matrix {
-        if other.data.len() == 1 {
-            let mut data = vec![0.0; self.data.len()];
-            for i in 0..self.data.len() {
-                data[i] = self.data[i] * other.data[0];
-            }
-            return Matrix::new(self.rows(), self.cols(), data);
-        }
-
-        if self.cols() != other.cols() {
-            panic!("Dimensions are not compatible: A.cols != B.cols");
-        }
-
-        if (self.rows() == other.rows()) || (other.rows() == 1) {
-            let mut data = vec![0.0; self.data.len()];
-            if other.rows() == self.rows() {
-                for i in 0..self.rows() {
-                    for j in 0..self.cols() {
-                        data[i * self.cols() + j] =
-                            self.data[i * self.cols() + j] * other.data[i * self.cols() + j];
-                    }
-                }
-            } else {
-                for i in 0..self.rows() {
-                    for j in 0..self.cols() {
-                        data[i * self.cols() + j] = self.data[i * self.cols() + j] * other.data[j];
-                    }
-                }
-            }
-            Matrix::new(self.rows(), self.cols(), data)
-        } else {
-            panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
-        }
+        self.zip_map(other, |a, b| a * b)
     }
 }
 
@@ -148,38 +157,7 @@ impl Add for &Matrix {
     type Output = Matrix;
 
     fn add(self, other: &Matrix) -> Matrix {
-        if other.data.len() == 1 {
-            let mut data = vec![0.0; self.data.len()];
-            for i in 0..self.data.len() {
-                data[i] = self.data[i] + other.data[0];
-            }
-            return Matrix::new(self.rows(), self.cols(), data);
-        }
-
-        if self.cols() != other.cols() {
-            panic!("Dimensions are not compatible: A.cols != B.cols");
-        }
-
-        if (self.rows() == other.rows()) || (other.rows() == 1) {
-            let mut data = vec![0.0; self.data.len()];
-            if other.rows() == self.rows() {
-                for i in 0..self.rows() {
-                    for j in 0..self.cols() {
-                        data[i * self.cols() + j] =
-                            self.data[i * self.cols() + j] + other.data[i * self.cols() + j];
-                    }
-                }
-            } else {
-                for i in 0..self.rows() {
-                    for j in 0..self.cols() {
-                        data[i * self.cols() + j] = self.data[i * self.cols() + j] + other.data[j];
-                    }
-                }
-            }
-            Matrix::new(self.rows(), self.cols(), data)
-        } else {
-            panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
-        }
+        self.zip_map(other, |a, b| a + b)
     }
 }
 
@@ -187,38 +165,7 @@ impl Sub for &Matrix {
     type Output = Matrix;
 
     fn sub(self, other: &Matrix) -> Matrix {
-        if other.data.len() == 1 {
-            let mut data = vec![0.0; self.data.len()];
-            for i in 0..self.data.len() {
-                data[i] = self.data[i] - other.data[0];
-            }
-            return Matrix::new(self.rows(), self.cols(), data);
-        }
-
-        if self.cols() != other.cols() {
-            panic!("Dimensions are not compatible: A.cols != B.cols");
-        }
-
-        if (self.rows() == other.rows()) || (other.rows() == 1) {
-            let mut data = vec![0.0; self.data.len()];
-            if other.rows() == self.rows() {
-                for i in 0..self.rows() {
-                    for j in 0..self.cols() {
-                        data[i * self.cols() + j] =
-                            self.data[i * self.cols() + j] - other.data[i * self.cols() + j];
-                    }
-                }
-            } else {
-                for i in 0..self.rows() {
-                    for j in 0..self.cols() {
-                        data[i * self.cols() + j] = self.data[i * self.cols() + j] - other.data[j];
-                    }
-                }
-            }
-            Matrix::new(self.rows(), self.cols(), data)
-        } else {
-            panic!("Dimension are not compatible: either A.rows != B.rows or B.rows != 1");
-        }
+        self.zip_map(other, |a, b| a - b)
     }
 }
 
@@ -226,13 +173,13 @@ impl Display for Matrix {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut disp = String::with_capacity(2 * (self.rows * self.cols));
         disp.push('\n');
-        for i in 0..self.rows() {
-            for j in 0..self.cols() {
-                disp.push_str(&format!("{} ", self.data[i * self.cols() + j]));
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                disp.push_str(&format!("{} ", self.get(i, j)));
             }
             disp.push('\n');
         }
-        disp.push_str(&format!("({}, {})\n", self.rows(), self.cols()));
+        disp.push_str(&format!("({}, {})\n", self.rows, self.cols));
         write!(f, "{}", disp)
     }
 }
@@ -259,14 +206,35 @@ mod tests {
     }
 
     #[test]
+    fn test_transpose_then_add() {
+        // A = [1, 2] (1x2)
+        let mut a = Matrix::new(1, 2, vec![1.0, 2.0]);
+
+        // Transpose A -> [1, 2]^T (2x1)
+        a.transpose();
+
+        // B = [3, 4]^T (2x1)
+        let b = Matrix::new(2, 1, vec![3.0, 4.0]);
+
+        // Operation:
+        // [1]   [3]   [4]
+        // [2] + [4] = [6]
+        let res = &a + &b;
+
+        assert_eq!(res.rows, 2);
+        assert_eq!(res.cols, 1);
+        assert_eq!(res.data, vec![4.0, 6.0]);
+    }
+
+    #[test]
     fn two_by_tow() {
         let a = Matrix::new(2, 2, vec![2.1, 2.3, 1.2, 1.4]);
         let b = Matrix::new(2, 2, vec![1.3, 1.2, 2.9, 2.7]);
 
         let res = &a.dot(&b).unwrap();
 
-        assert_eq!(res.rows(), a.rows());
-        assert_eq!(res.cols(), b.cols());
+        assert_eq!(res.rows, a.rows);
+        assert_eq!(res.cols, b.cols);
         assert_vec_approx_eq(
             &res.data,
             &[9.399999999999999, 8.73, 5.619999999999999, 5.22],
@@ -280,8 +248,8 @@ mod tests {
 
         let res = &a.dot(&b).unwrap();
 
-        assert_eq!(res.rows(), a.rows());
-        assert_eq!(res.cols(), b.cols());
+        assert_eq!(res.rows, a.rows);
+        assert_eq!(res.cols, b.cols);
         assert_eq!(res.data, vec![12.0, 12.0, 12.0]);
     }
 
@@ -292,8 +260,8 @@ mod tests {
 
         let res = &a.dot(&b).unwrap();
 
-        assert_eq!(res.rows(), a.rows());
-        assert_eq!(res.cols(), b.cols());
+        assert_eq!(res.rows, a.rows);
+        assert_eq!(res.cols, b.cols);
         assert_eq!(res.data, vec![12.0; 9]);
     }
 
@@ -304,8 +272,8 @@ mod tests {
 
         let res = &a.dot(&b).unwrap();
 
-        assert_eq!(res.rows(), a.rows());
-        assert_eq!(res.cols(), b.cols());
+        assert_eq!(res.rows, a.rows);
+        assert_eq!(res.cols, b.cols);
         assert_eq!(res.data, vec![16.0; 16]); // 4 * (2.0 * 2.0) = 16.0
     }
 
@@ -316,8 +284,8 @@ mod tests {
 
         let res = &a.dot(&b).unwrap();
 
-        assert_eq!(res.rows(), a.rows());
-        assert_eq!(res.cols(), b.cols());
+        assert_eq!(res.rows, a.rows);
+        assert_eq!(res.cols, b.cols);
         assert_eq!(res.data, vec![484.0; 14641]); // 121 * (2.0 * 2.0) = 484.0
     }
 
@@ -330,8 +298,8 @@ mod tests {
 
         let expected_data = vec![58.0, 64.0, 139.0, 154.0];
 
-        assert_eq!(res.rows(), 2);
-        assert_eq!(res.cols(), 2);
+        assert_eq!(res.rows, 2);
+        assert_eq!(res.cols, 2);
         assert_eq!(res.data, expected_data);
     }
 
@@ -343,14 +311,14 @@ mod tests {
 
         // Test A * I = A
         let res_a = &a.dot(&i_3x3).unwrap();
-        assert_eq!(res_a.rows(), a.rows());
-        assert_eq!(res_a.cols(), a.cols());
+        assert_eq!(res_a.rows, a.rows);
+        assert_eq!(res_a.cols, a.cols);
         assert_eq!(res_a.data, a.data);
 
         // Test I * A = A
         let res_b = &i_2x2.dot(&a).unwrap();
-        assert_eq!(res_b.rows(), a.rows());
-        assert_eq!(res_b.cols(), a.cols());
+        assert_eq!(res_b.rows, a.rows);
+        assert_eq!(res_b.cols, a.cols);
         assert_eq!(res_b.data, a.data);
     }
 
@@ -363,8 +331,8 @@ mod tests {
 
         let expected_data = vec![-5.0, 2.0, 10.0, 8.0];
 
-        assert_eq!(res.rows(), 2);
-        assert_eq!(res.cols(), 2);
+        assert_eq!(res.rows, 2);
+        assert_eq!(res.cols, 2);
         assert_eq!(res.data, expected_data);
     }
 
@@ -377,8 +345,8 @@ mod tests {
 
         let expected_data = vec![32.0];
 
-        assert_eq!(res.rows(), 1);
-        assert_eq!(res.cols(), 1);
+        assert_eq!(res.rows, 1);
+        assert_eq!(res.cols, 1);
         assert_eq!(res.data, expected_data);
     }
 
@@ -391,8 +359,8 @@ mod tests {
 
         let expected_data = vec![4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 12.0, 15.0, 18.0];
 
-        assert_eq!(res.rows(), 3);
-        assert_eq!(res.cols(), 3);
+        assert_eq!(res.rows, 3);
+        assert_eq!(res.cols, 3);
         assert_eq!(res.data, expected_data);
     }
 
@@ -411,8 +379,8 @@ mod tests {
 
         a.transpose();
 
-        assert_eq!(a.rows(), 3);
-        assert_eq!(a.cols(), 2);
+        assert_eq!(a.rows, 3);
+        assert_eq!(a.cols, 2);
         assert_eq!(a.data, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     }
 
@@ -426,8 +394,8 @@ mod tests {
         // A^T (1x3)
         let expected_data = vec![1.0, 2.0, 3.0];
 
-        assert_eq!(a.rows(), 1);
-        assert_eq!(a.cols(), 3);
+        assert_eq!(a.rows, 1);
+        assert_eq!(a.cols, 3);
         assert_eq!(a.data, expected_data);
     }
 
@@ -441,8 +409,8 @@ mod tests {
         // A^T (3x1)
         let expected_data = vec![1.0, 2.0, 3.0];
 
-        assert_eq!(a.rows(), 3);
-        assert_eq!(a.cols(), 1);
+        assert_eq!(a.rows, 3);
+        assert_eq!(a.cols, 1);
         assert_eq!(a.data, expected_data);
     }
 

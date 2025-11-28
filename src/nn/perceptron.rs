@@ -90,7 +90,7 @@ impl Network {
             panic!("Add an input layer before adding hidden layers");
         }
 
-        let prev_rows = self.layers.last().unwrap().weights.rows();
+        let prev_rows = self.layers.last().unwrap().weights.rows;
         self.layers.push(Layer {
             weights: Matrix::uniform(neurons, prev_rows),
             activation,
@@ -200,15 +200,15 @@ impl Network {
             let layer = &mut self.layers[i];
             layer.weights = &layer.weights
                 - &(&Matrix::repeat(
-                    layer.weights.rows(),
-                    layer.weights.cols(),
+                    layer.weights.rows,
+                    layer.weights.cols,
                     self.learning_rate / batch_size as f64,
                 ) * &g_s.gradients[i]);
 
             layer.bias = &layer.bias
                 - &(&Matrix::repeat(
-                    layer.bias.rows(),
-                    layer.bias.cols(),
+                    layer.bias.rows,
+                    layer.bias.cols,
                     self.learning_rate / batch_size as f64,
                 ) * &g_s.errors[i]);
         }

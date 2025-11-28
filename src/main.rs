@@ -9,10 +9,10 @@ use crate::nn::perceptron;
 
 fn main() {
     let mut train_data = idx_parser::parse(
-        "C:\\Users\\e65455\\Documents\\git\\nn-scratch\\mnist_data\\train-images.idx3-ubyte",
+        "/home/sur/repo/nn-scratch/mnist_data/train-images.idx3-ubyte",
     );
     let train_labels = idx_parser::parse(
-        "C:\\Users\\e65455\\Documents\\git\\nn-scratch\\mnist_data\\train-labels.idx1-ubyte",
+        "/home/sur/repo/nn-scratch/mnist_data/train-labels.idx1-ubyte",
     );
 
     let mut nn = perceptron::Network::new(0.001, cross_entropy);
@@ -20,7 +20,7 @@ fn main() {
     nn.add_layer(64, sigmoid, Some(d_sigmoid));
     nn.add_layer(10, softmax, None);
 
-    let epoch = 100;
+    let epoch = 50;
     let batch_size = train_data.len() / epoch;
 
     for e in 0..epoch {

@@ -9,10 +9,10 @@ use crate::nn::perceptron;
 
 fn main() {
     let mut train_data = idx_parser::parse(
-        "/home/sur/repo/nn-scratch/mnist_data/train-images.idx3-ubyte",
+        "./mnist_data/train-images.idx3-ubyte",
     );
     let train_labels = idx_parser::parse(
-        "/home/sur/repo/nn-scratch/mnist_data/train-labels.idx1-ubyte",
+        "./mnist_data/train-labels.idx1-ubyte",
     );
 
     let mut nn = perceptron::Network::new(0.001, cross_entropy);

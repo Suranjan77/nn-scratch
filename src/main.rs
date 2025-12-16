@@ -17,6 +17,7 @@ fn main() {
 
     let mut nn = perceptron::Network::new(0.001, cross_entropy);
     nn.add_inp_layer(256, 784, sigmoid, Some(d_sigmoid));
+    nn.add_layer(128, sigmoid, Some(d_sigmoid));
     nn.add_layer(64, sigmoid, Some(d_sigmoid));
     nn.add_layer(10, softmax, None);
 

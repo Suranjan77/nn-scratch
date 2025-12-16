@@ -1,51 +1,32 @@
-name: AI Code Review
-
+name: Async AI Review
 on:
   pull_request:
     types: [opened, synchronize]
 
 jobs:
-  review:
+  trigger-review:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write # Required to post comments
-      
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Crucial for calculating diffs
+          fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install Dependencies
-        run: pip install requests
-
-      - name: Run AI Review
+      - name: Send Diff to Server
         env:
-          OPEN_WEBUI_URL: ${{ secrets.OPEN_WEBUI_URL }}
-          OPEN_WEBUI_TOKEN: ${{ secrets.OPEN_WEBUI_TOKEN }}
-          GITHUB_BASE_REF: ${{ github.base_ref }}
+          REVIEW_SERVER_URL: ${{ secrets.REVIEW_SERVER_URL }} # http://your-server-ip:8000
+          SHARED_SECRET: ${{ secrets.SHARED_SECRET }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_NAME: ${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          python3 .github/scripts/ai_review.py > review_output.txt
+          DIFF=$(git diff origin/$BASE_REF...HEAD -- . ':!package-lock.json' ':!yarn.lock' | head -c 30000)
+          
+          # JSON Payload creation
+          JSON_PAYLOAD=$(python3 -c "import json, os, sys; print(json.dumps({'secret': os.environ['SHARED_SECRET'], 'repo_full_name': os.environ['REPO_NAME'], 'pr_number': int(os.environ['PR_NUMBER']), 'diff': sys.stdin.read()}))" <<< "$DIFF")
 
-      - name: Post Comment to PR
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            const review = fs.readFileSync('review_output.txt', 'utf8');
-            
-            // Do not post if review is empty or just connection error
-            if (review.trim().length > 0) {
-              github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: "🤖 **AI Review**\n\n" + review
-              })
-            }
+          # Send to your server with a short timeout (Fire and forget)
+          curl -X POST "$REVIEW_SERVER_URL/trigger-review" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            --max-time 10 || true

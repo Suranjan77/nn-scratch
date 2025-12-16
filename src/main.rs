@@ -21,7 +21,7 @@ fn main() {
     nn.add_layer(64, sigmoid, Some(d_sigmoid));
     nn.add_layer(10, softmax, None);
 
-    let epoch = 50;
+    let mut epoch = 50;
     let batch_size = train_data.len() / epoch;
 
     for e in 0..epoch {

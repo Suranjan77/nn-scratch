@@ -1,0 +1,32 @@
+name: Async AI Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  trigger-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Send Diff to Server
+        env:
+          REVIEW_SERVER_URL: ${{ secrets.REVIEW_SERVER_URL }} # http://your-server-ip:8000
+          SHARED_SECRET: ${{ secrets.SHARED_SECRET }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_NAME: ${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          DIFF=$(git diff origin/$BASE_REF...HEAD -- . ':!package-lock.json' ':!yarn.lock' | head -c 30000)
+          
+          # JSON Payload creation
+          JSON_PAYLOAD=$(python3 -c "import json, os, sys; print(json.dumps({'secret': os.environ['SHARED_SECRET'], 'repo_full_name': os.environ['REPO_NAME'], 'pr_number': int(os.environ['PR_NUMBER']), 'diff': sys.stdin.read()}))" <<< "$DIFF")
+
+          # Send to your server with a short timeout (Fire and forget)
+          curl -X POST "$REVIEW_SERVER_URL/trigger-review" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            --max-time 10 || true

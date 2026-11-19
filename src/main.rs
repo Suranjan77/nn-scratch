@@ -14,7 +14,8 @@ fn main() {
     let train_labels = idx_parser::parse(
         "./mnist_data/train-labels.idx1-ubyte",
     );
-
+    
+    // This is a change mad just now 
     let mut nn = perceptron::Network::new(0.001, cross_entropy);
     nn.add_inp_layer(256, 784, sigmoid, Some(d_sigmoid));
     nn.add_layer(64, sigmoid, Some(d_sigmoid));

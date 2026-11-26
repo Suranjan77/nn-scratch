@@ -1,5 +1,22 @@
+//! Activation functions and their derivatives.
+//!
+//! An activation function is applied to every value of a layer's pre-activation
+//! `A = X·W + b`, each value on its own (softmax is the exception: it works
+//! row by row, see below).
+//!
+//! Without one, two layers are no better than one: two matrix multiplications in
+//! a row are the same as one multiplication by their product,
+//! `(X·W1)·W2 = X·(W1·W2)`. So something that is NOT a multiplication must sit
+//! between the layers, letting the next layer depend on which features fire,
+//! not just on how much ink there is.
+//!
+//! The derivatives (`d_*`) are used during back-propagation to find out how much
+//! a small change in the pre-activation changes the output of the activation.
+
 use crate::math::matrix::Matrix;
 
+/// ReLU: `max(0, x)`. Keeps the positives and zeroes the rest:
+/// a feature is either on (and says how strongly) or off.
 pub fn relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data().len()];
 
@@ -10,6 +27,8 @@ pub fn relu(m: &Matrix) -> Matrix {
     Matrix::new(m.rows, m.cols, data)
 }
 
+/// Derivative of ReLU: 1 where `x > 0`, otherwise 0.
+/// A feature that was off passed nothing forward, so it takes no blame back.
 pub fn d_relu(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data().len()];
 
@@ -23,6 +42,8 @@ pub fn d_relu(m: &Matrix) -> Matrix {
     Matrix::new(m.rows, m.cols, data)
 }
 
+/// Sigmoid: `1 / (1 + e^-x)`. Squashes any number into the range (0, 1):
+/// a smooth version of "off" (near 0) and "on" (near 1).
 pub fn sigmoid(m: &Matrix) -> Matrix {
     let mut data = vec![0_f64; m.data().len()];
 
@@ -33,6 +54,9 @@ pub fn sigmoid(m: &Matrix) -> Matrix {
     Matrix::new(m.rows, m.cols, data)
 }
 
+/// Derivative of sigmoid: `sigmoid(x) * (1 - sigmoid(x))`.
+/// It is largest (0.25) at `x = 0` and close to 0 for very large or very small
+/// `x`, which is why inputs must be scaled and starting weights kept small.
 pub fn d_sigmoid(m: &Matrix) -> Matrix {
     let one = Matrix::repeat(m.rows, m.cols, 1.0);
     let s = sigmoid(m);
@@ -40,19 +64,31 @@ pub fn d_sigmoid(m: &Matrix) -> Matrix {
     &s * &r
 }
 
-// Softmax is almost always paired with cross-entropy loss function to prevent vanishing gradient and also allows calculation of gradient in simpler way.
-// y_hat - y is the gradient so, no need to explicitly calculate derivative of softmax.
-
+/// Softmax, applied to every ROW on its own (one row = one image's ten scores):
+/// `e^s_k / (e^s_0 + ... + e^s_9)`. Ten scores become ten probabilities:
+/// `exp` makes every score positive, and dividing by the row total makes them add up to 1.
+/// The highest score gets the highest probability, so the `argmax` of a row is the
+/// predicted digit.
+///
+/// Example: scores where digit 7 has 7.54 and the next best, 9, has 2.33.
+/// `e^7.54 = 1875.6` out of a total of about 1892.7, so `p(7) = 0.991`.
+///
+/// Softmax is almost always paired with the cross-entropy loss. Together their
+/// combined derivative is simply `prediction - label`, so we never need a separate
+/// `d_softmax` (the output layer is created with `None` as its derivative).
+///
+/// The row's maximum is subtracted before `exp()` for numerical stability:
+/// `e^1000` overflows to infinity, but `e^(1000 - 1000) = 1` is fine. Subtracting the
+/// same number from every score of a row does not change its probabilities.
 pub fn softmax(m: &Matrix) -> Matrix {
-    let mut data = vec![0_f64; m.data().len()];
-    let sum = m
-        .data()
-        .iter()
-        .map(|x| x.exp())
-        .reduce(|acc, x| acc + x)
-        .unwrap_or(0.0);
-    for i in 0..m.data().len() {
-        data[i] = m.data()[i].exp() / sum;
+    let mut data = Vec::with_capacity(m.rows * m.cols);
+
+    for i in 0..m.rows {
+        let row: Vec<f64> = (0..m.cols).map(|j| m.get(i, j)).collect();
+        let max = row.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let exps: Vec<f64> = row.iter().map(|s| (s - max).exp()).collect();
+        let total: f64 = exps.iter().sum();
+        data.extend(exps.iter().map(|e| e / total));
     }
 
     Matrix::new(m.rows, m.cols, data)

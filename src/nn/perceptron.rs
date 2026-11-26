@@ -106,6 +106,14 @@ impl Network {
         self.layers.len()
     }
 
+    /// `(inputs, neurons)` of every layer, first to last: the shape of its W.
+    pub fn layer_shapes(&self) -> Vec<(usize, usize)> {
+        self.layers
+            .iter()
+            .map(|layer| (layer.weights.rows, layer.weights.cols))
+            .collect()
+    }
+
     /// Forward pass for PREDICTION: every image of `x` through every layer.
     /// Returns P, shape (images, 10): one row of ten probabilities per image.
     pub fn predict(&self, x: &Matrix) -> Matrix {

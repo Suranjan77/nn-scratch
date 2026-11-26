@@ -14,6 +14,8 @@ mod data;
 mod math;
 mod nn;
 
+use std::time::Instant;
+
 use rand::seq::SliceRandom;
 
 use crate::data::idx_parser;
@@ -43,8 +45,16 @@ fn main() {
     let x_val = x_train.split_off_rows(50_000);
     let y_val = y_train.split_off_rows(50_000);
     println!(
-        "X: ({}, {})  Y: ({}, {})",
+        "train:      X ({}, {})  Y ({}, {})",
         x_train.rows, x_train.cols, y_train.rows, y_train.cols
+    );
+    println!(
+        "validation: X ({}, {})  Y ({}, {})",
+        x_val.rows, x_val.cols, y_val.rows, y_val.cols
+    );
+    println!(
+        "test:       X ({}, {})  Y ({}, {})",
+        x_test.rows, x_test.cols, y_test.rows, y_test.cols
     );
 
     // ---- Build the network --------------------------------------------------
@@ -54,6 +64,9 @@ fn main() {
     nn.add_inp_layer(256, 784, sigmoid, Some(d_sigmoid)); // W1: (784, 256)
     nn.add_layer(64, sigmoid, Some(d_sigmoid)); //           W2: (256, 64)
     nn.add_layer(10, softmax, None); //                      W3: (64, 10)
+    for (l, (inputs, neurons)) in nn.layer_shapes().into_iter().enumerate() {
+        println!("layer {}: W ({inputs}, {neurons})  b (1, {neurons})", l + 1);
+    }
 
     // ---- Train ---------------------------------------------------------------
     // Minibatches: the same arithmetic on 100 rows at a time. Shuffle, cut into
@@ -69,6 +82,7 @@ fn main() {
     for epoch in 0..epochs {
         // A new order every epoch, so every batch is a different random mix of digits.
         order.shuffle(&mut rand::rng());
+        let epoch_start = Instant::now();
 
         let mut training_loss = 0.0;
 
@@ -87,10 +101,11 @@ fn main() {
         // started memorising the training digits (overfitting).
         training_loss /= x_train.rows as f64;
         println!(
-            "Epoch: {} Train Loss: {:.4} Validation Accuracy: {:.2}%",
+            "Epoch: {} Train Loss: {:.4} Validation Accuracy: {:.2}% ({:.1}s)",
             epoch + 1,
             training_loss,
-            accuracy(&nn, &x_val, &y_val) * 100.0
+            accuracy(&nn, &x_val, &y_val) * 100.0,
+            epoch_start.elapsed().as_secs_f64()
         );
     }
 
